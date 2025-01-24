@@ -1,4 +1,4 @@
-name: "Hpkl: Release Drafter run"
+name: "Release Drafter run"
 
 on:
   push:
