@@ -1,0 +1,209 @@
+open module pklhub.app
+
+import "@k8s/K8sResource.pkl"
+import "@k8s/K8sObject.pkl"
+import "@k8s/api/apps/v1/Deployment.pkl"
+import "@k8s/api/core/v1/ConfigMap.pkl"
+import "@k8s/api/core/v1/Secret.pkl"
+import "@k8s/api/core/v1/Service.pkl"
+import "@k8s/api/core/v1/ServiceAccount.pkl"
+import "@k8s/api/networking/v1/Ingress.pkl"
+
+import "renderer.pkl"
+
+import "common/Affinities.pkl"
+
+applicationName: K8sResource.Rfc1123Label = "app"
+
+class K8SResource {
+  cpu: UInt32 = 500
+  memory: DataSize = 128.mib
+}
+
+resourcesRequests: K8SResource = new {}
+resourcesLimits: K8SResource? = resourcesRequests
+
+selectorLabels: Mapping<String, String> = new {
+  ["app.kubernetes.io/name"] = applicationName
+}
+
+hidden redeployOnConfig : Boolean = true
+
+commonLabels: Mapping<String, String> = new {
+  ["app"] = applicationName
+  ...selectorLabels
+}
+
+class ImageConfig {
+  fullName: String = List(repository, name + ":" + tag).filterNonNull().join("/")
+  repository: String?
+  name: String?
+  tag: String? = "latest"
+}
+
+containerConfigPath = "/app/config"
+containerSecretPath = "/app/secret"
+configFileName = "application.\(configRenderer?.extension)"
+secretFileName = "application.secrets.\(configRenderer?.extension)"
+
+hidden configRenderer =  new YamlRenderer{
+  converters {
+    [Duration] = (d: Duration) -> d.isoString
+    [DataSize] = (d: DataSize) -> "\(d.value)\(d.unit.toUpperCase())"
+  }
+}
+
+image: ImageConfig = new {
+  name = applicationName
+}
+
+config: Typed?
+hidden configMixin: Mixin<Dynamic>?
+
+deployment: Deployment = new {
+  metadata {
+    name = applicationName    
+    labels {
+      ...commonLabels
+    }
+  }
+  spec {
+    selector {
+      matchLabels {
+        ...selectorLabels
+      }
+    }
+    template {
+      metadata {
+        labels {
+          ...commonLabels
+        }
+        annotations {
+          when (config != null && redeployOnConfig == true) {
+            ["checksum/config"] = config.toString().sha256
+          }
+        }
+      }
+      spec {
+        affinity = module.affinity.config
+        when (module.serviceAccount != null) {
+          serviceAccountName = module.serviceAccount.metadata.name
+        }
+        containers {
+          new {
+            name = "app"
+            image = module.image.fullName
+            imagePullPolicy = "Always"
+            resources {
+              requests {
+                ["cpu"] = "\(module.resourcesRequests.cpu)m"
+                ["memory"] = module.resourcesRequests.memory.toUnit("mib")
+              }
+              when (module.resourcesLimits != null) {
+                limits {
+                  ["cpu"] = "\(module.resourcesLimits.cpu)m"
+                  ["memory"] = module.resourcesLimits.memory.toUnit("mib")
+                }
+              }
+            }
+            volumeMounts {
+              when (module.configMap != null) {
+                new {
+                  name = "config"
+                  mountPath = containerConfigPath
+                  readOnly = true
+                }
+              }
+              when (module.secret != null) {
+                new {
+                  name = "secret"
+                  mountPath = containerSecretPath
+                  readOnly = true
+                }
+              }
+            }
+          }
+        }
+        volumes {
+          when (module.configMap != null) {
+            new {
+              name = "config"
+              configMap {
+                name = module.configMap.metadata.name
+                items {
+                  for (_key, _ in module.configMap.data!!) {
+                    new {
+                      key = _key
+                      path = _key
+                    }
+                  }
+                }
+              }
+            }
+          }
+          when (module.secret != null) {
+            new {
+              name = "secret"
+              secret {
+                secretName = module.secret.metadata.name
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+ingress: Ingress?
+service: Service?
+serviceAccount: ServiceAccount?
+additional: Mapping<String, K8sResource>
+
+affinity = new Affinities {
+  podAntiAffinityConfig {
+    selectorLabels = module.selectorLabels
+  }
+}
+
+local secretRenderer = new renderer.SecretRenderer{}
+
+configMap = if (config != null) new ConfigMap {
+  metadata {
+    name = "\(applicationName)-config"
+    labels {
+      ...commonLabels
+    }
+  }
+  data {
+    [configFileName] = configRenderer.renderValue(
+      let (rendered = secretRenderer.render(config, false))
+        rendered |> (configMixin ?? new Mixin<Dynamic> {})
+    )
+  }
+} else null
+
+secret = if (config != null) new Secret {
+  type = "Opaque"
+  metadata {
+    name = "\(applicationName)-secrets"
+    labels {
+      ...commonLabels
+    }
+  }
+  stringData {
+    [secretFileName] = configRenderer.renderValue(secretRenderer.render(config, true))
+  }
+} else null
+
+
+output {
+  renderer = new YamlRenderer {
+    isStream = true
+    converters = ((K8sObject.output.renderer as YamlRenderer).converters) {
+      [Duration] = (duration: Duration) -> duration.isoString
+    }
+  }
+  value = (List(configMap, deployment, ingress, secret, service, serviceAccount) + additional?.toMap().values.toList()).filterNonNull()
+}
+

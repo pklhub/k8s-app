@@ -1,0 +1,186 @@
+amends "pkl:test"
+
+import "../renderer.pkl"
+
+local open class TestConfig {
+    name: String?
+    id: UInt
+    @renderer.SecretField
+    secret: String?
+}
+
+local class TestConfigExtended extends TestConfig  {
+    @renderer.NamedField{name = "another"}
+    anotherField: String?
+
+    @renderer.SecretField
+    anotherSecret: String?    
+}
+
+local class ListConfig {
+  list: Listing<TestConfigExtended>
+}
+
+local open class NoneSecretTestConfig {
+    name: String?
+    id: UInt
+}
+
+local class NoneSecretListConfig {
+  list: Listing<NoneSecretTestConfig>
+}
+
+local class NoneSecretMapConfig {
+  map: Mapping<String, NoneSecretTestConfig>
+}
+
+local class ListStringConfig {
+  list: Listing<String>
+}
+
+local class ListStringConfiSecret {
+  @renderer.SecretField
+  list: Listing<String>
+}
+
+local class MapConfig {
+  map: Mapping<String, TestConfigExtended>
+}
+
+local class MapStringConfig {
+  map: Mapping<String, String>
+}
+
+local rend = new renderer.SecretRenderer{}
+
+examples {
+  ["Rendering is working withot secret"] {
+    rend.render(new TestConfig{
+        name = "Test"
+        id = 12121
+        secret = "TestSecret"
+    }, false)
+  }
+  ["Rendering is working only secret"] {
+    rend.render(new TestConfig{
+        name = "Test"
+        id = 12121
+        secret = "TestSecret"
+    }, true)
+  } 
+  ["Rendering is working for inheritance"] {
+    rend.render(new TestConfigExtended{
+        name = "Test"
+        id = 12121
+        secret = "TestSecret"
+        anotherField = "AnotherField"
+        anotherSecret = "1212121"
+    }, false)
+  }
+  ["Rendering is working for inheritance only for secrets"] {
+    rend.render(new TestConfigExtended{
+        name = "Test"
+        id = 12121
+        secret = "TestSecret"
+        anotherField = "AnotherField"
+        anotherSecret = "1212121"
+    }, true)
+  }
+  ["Listing secrets is working"] {
+    rend.render( new ListConfig {
+      list {
+        new TestConfigExtended{
+          name = "Test"
+          id = 12121
+          secret = "TestSecret"
+          anotherField = "AnotherField"
+          anotherSecret = "1212121"
+        }
+      }
+    }, true)
+  }
+
+  ["Mapping secrets is working"] {
+    rend.render( new MapConfig {
+      map {
+        ["Test"] = new TestConfigExtended{
+          name = "Test"
+          id = 12121
+          secret = "TestSecret"
+          anotherField = "AnotherField"
+          anotherSecret = "1212121"
+        }
+      }
+    }, true)
+  }  
+  ["Lists of general types are working"] {
+    rend.render(
+      new ListStringConfig{
+        list {
+          "TEST"
+          "TEST2"
+        }
+      }, false
+    )    
+  }
+  ["Map of general types are working"] {
+    rend.render(
+      new MapStringConfig{
+        map {
+          ["TEST"] = "TEST"
+          ["TEST2"] = "TEST2"
+        }
+      }, false
+    )    
+  }  
+  ["Map of general types are working with secrets"] {
+    rend.render(
+      new MapStringConfig{
+        map {
+          ["TEST"] = "TEST"
+          ["TEST2"] = "TEST2"
+        }
+      }, true
+    )    
+  }
+  ["Lists of general types under secret are working"] {
+    rend.render(
+      new ListStringConfiSecret{
+        list {
+          "TEST"
+          "TEST2"
+        }
+      }, true
+    )    
+  }
+  ["Lists of general types under secret are hidden"] {
+    rend.render(
+      new ListStringConfiSecret{
+        list {
+          "TEST"
+          "TEST2"
+        }
+      }, false
+    )    
+  }    
+  ["Listing none secrets do not produce empty objects"] {
+    rend.render( new NoneSecretListConfig {
+      list {
+        new NoneSecretTestConfig{
+          name = "Test"
+          id = 12121
+        }
+      }
+    }, true)
+  }    
+  ["Mapping none secrets do not produce empty objects"] {
+    rend.render( new NoneSecretMapConfig {
+      map {
+        ["TEST"] = new NoneSecretTestConfig{
+          name = "Test"
+          id = 12121
+        }
+      }
+    }, true)
+  }                
+}

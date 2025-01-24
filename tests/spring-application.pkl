@@ -1,0 +1,77 @@
+amends "pkl:test"
+
+import "../SpringApplication.pkl"
+import "../renderer.pkl"
+
+local class ExampleConfig {
+  username: String
+  @renderer.SecretField
+  password: String
+}
+
+examples {
+  ["spring application"] {
+    new SpringApplication {
+      resourcesRequests {
+        cpu = 722
+        memory = 122.mib
+      }      
+      redeployOnConfig = false
+    }
+  }
+  ["spring application with jmx"] {
+    new SpringApplication {
+      resourcesRequests {
+        cpu = 722
+        memory = 122.mib
+      }      
+      debug = true
+      redeployOnConfig = false
+    }
+  }
+  ["spring application with secrets"] {
+    new SpringApplication {
+      config = new ExampleConfig {
+        username = "admin"
+        password = "secret"
+      }
+      redeployOnConfig = false
+    }
+  }
+  ["spring podAntiAffinityPresetSoft"] {
+    new SpringApplication {
+      affinity {
+        podAntiAffinityConfig {
+          preset = "Soft"
+        }
+      }
+      redeployOnConfig = false
+    }
+  }
+  ["spring podAntiAffinityPresetHard"] {
+    new SpringApplication {
+      affinity {
+        podAntiAffinityConfig {
+          preset = "Hard"
+        }
+      }
+      redeployOnConfig = false
+    }
+  }
+  ["spring without service"] {
+    new SpringApplication {
+      grpc = null
+      http = null
+      redeployOnConfig = false
+    }
+  }  
+  ["Application with redeployment"] {
+    new SpringApplication {
+      config = new ExampleConfig {
+        username = "admin"
+        password = "secret"
+      }
+      redeployOnConfig = true
+    }
+  }  
+}
