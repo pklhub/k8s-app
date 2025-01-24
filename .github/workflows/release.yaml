@@ -49,7 +49,7 @@ jobs:
         env:
           PROJECT_VERSION: ${{ steps.vars.outputs.tag }}      
         run: |
-          cp .out/k8s-app@$PROJECT_VERSION/hpkl-k8s-app@$PROJECT_VERSION packages/k8s-app@$PROJECT_VERSION
+          cp .out/k8s-app@$PROJECT_VERSION/k8s-app@$PROJECT_VERSION packages/k8s-app@$PROJECT_VERSION
           cd packages
           git config --global user.email "ci@hpkl.io"
           git config --global user.name "Github Action"
