@@ -1,4 +1,4 @@
-name: GoReleaser
+name: Release
 
 on:
   push:
@@ -12,7 +12,7 @@ permissions:
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   PKL_VERSION: 0.26.3
-  HPKL_VERSION: 0.6.0
+  HPKL_VERSION: 0.8.0
 
 jobs:
   pkl:
@@ -41,7 +41,7 @@ jobs:
         run: |
           pkl project resolve --no-cache
           pkl project package --no-cache
-          gh release upload v$PROJECT_VERSION .out/hpkl-k8s-app@$PROJECT_VERSION/hpkl-k8s-app@$PROJECT_VERSION.zip
+          gh release upload v$PROJECT_VERSION .out/k8s-app@$PROJECT_VERSION/k8s-app@$PROJECT_VERSION.zip
       - uses: actions/checkout@v4
         with:
           repository: pklhub/packages
@@ -52,12 +52,12 @@ jobs:
         env:
           PROJECT_VERSION: ${{ steps.vars.outputs.tag }}      
         run: |
-          cp .out/hpkl-k8s-app@$PROJECT_VERSION/hpkl-k8s-app@$PROJECT_VERSION packages/hpkl-k8s-app@$PROJECT_VERSION
+          cp .out/k8s-app@$PROJECT_VERSION/hpkl-k8s-app@$PROJECT_VERSION packages/k8s-app@$PROJECT_VERSION
           cd packages
           git config --global user.email "ci@hpkl.io"
           git config --global user.name "Github Action"
-          git add hpkl-k8s-app@$PROJECT_VERSION
-          git commit -m "Relase hpkl-k8s-app@$PROJECT_VERSION"
+          git add k8s-app@$PROJECT_VERSION
+          git commit -m "Relase k8s-app@$PROJECT_VERSION"
           git push
   hpkl:
     runs-on: ubuntu-latest
