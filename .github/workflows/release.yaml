@@ -10,7 +10,7 @@ permissions:
   packages: write
   
 env:
-  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  GITHUB_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
   PKL_VERSION: 0.26.3
   HPKL_VERSION: 0.8.0
 
@@ -32,9 +32,6 @@ jobs:
         run: | 
           curl -sSL https://github.com/apple/pkl/releases/download/${PKL_VERSION}/pkl-linux-amd64 -o $HOME/.local/bin/pkl
           chmod +x $HOME/.local/bin/pkl
-      - name: Replace baseUri
-        run: |
-          sed -i -e 's/package\:\/\/ghcr.io\/pklhub\/\\(name)/package\:\/\/pkg.hpkl.io\/\\(name)/g' PklProject
       - name: Build & Publish
         env:
           PROJECT_VERSION: ${{ steps.vars.outputs.tag }}      
